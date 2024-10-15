@@ -29,7 +29,7 @@ class KalmanBoxTracker:
         self.kf.R[2:, 2:] *= 10.  # Measurement noise
         self.kf.P[4:, 4:] *= 1000.  # State uncertainty
         self.kf.P *= 10.  # Initial state covariance
-        self.kf.x[:4] = bbox.reshape((4, 1))  # Initial state
+        self.kf.x[:4] = bbox[:4].reshape((4, 1))   # Initial state
         self.time_since_update = 0
         self.id = KalmanBoxTracker.count
         KalmanBoxTracker.count += 1
@@ -38,7 +38,7 @@ class KalmanBoxTracker:
     def update(self, bbox):
         """Update state vector with observed bounding box."""
         self.time_since_update = 0
-        self.kf.update(bbox)
+        self.kf.update(bbox[:4].reshape((4, 1)))
 
     def predict(self):
         """Advance the state vector and return predicted bounding box."""
