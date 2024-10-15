@@ -24,10 +24,13 @@ while cap.isOpened():
     detections = []
     for result in results:
         for box, mask in zip(result.boxes.xyxy, result.masks.data):
-            x1, y1, x2, y2 = map(int, box)  # Convert coordinates to integers
+            x1, y1, x2, y2 = map(int, box[:4])  # Extract only coordinates
             conf = result.boxes.conf[0]  # Confidence score
+
             if conf > 0.5:  # Confidence threshold
-                detections.append([x1, y1, x2, y2, conf])
+            # Append only the coordinates, without confidence
+                detections.append([x1, y1, x2, y2])
+
 
     # Update SORT tracker with new detections
     tracked_objects = tracker.update(np.array(detections))
