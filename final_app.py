@@ -18,14 +18,14 @@ if 'processed' not in st.session_state:
     st.session_state['total_damage_volume_m3'] = 0  # Total damage volume in m³
 
 # Streamlit app setup
-st.title("YOLOv8 Pothole Detection with Accurate Area and Volume Calculation")
+st.title("Road Repair Cost Calculator")
 st.sidebar.header("Settings")
 
 # Sidebar inputs for user preferences
 confidence_threshold = st.sidebar.slider(
     "Confidence Threshold", 0.0, 1.0, 0.5, step=0.05
 )
-model_path = st.sidebar.text_input("Model Path", "./models/best.pt")
+model_path = "./models/best.pt"
 
 # Request real-world road dimensions, depth, and concrete cost
 road_length_m = st.sidebar.number_input("Road Length (meters)", min_value=1.0, step=0.1)
@@ -45,7 +45,7 @@ if st.sidebar.button("Process Video") and uploaded_video and not st.session_stat
 
     # Check if GPU is available
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    st.write(f"Using device: {device}")
+    st.write("Processing Video")
 
     # Load YOLOv8 model
     model = YOLO(model_path).to(device)
