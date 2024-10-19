@@ -13,7 +13,7 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 print(f"Using device: {device}")
 
 # Load the YOLOv8 model and send it to the appropriate device (CPU/GPU)
-model = YOLO("best.pt").to(device)
+model = YOLO("./models/best.pt").to(device)
 
 # Initialize SORT tracker
 tracker = Sort(max_age=5, min_hits=3, iou_threshold=0.3)
