@@ -145,7 +145,7 @@ if st.sidebar.button("Process Video") and uploaded_video and not st.session_stat
             )
 
         # Display total damage volume on the video frame
-        total_volume_label = f'Total Damage Volume: {st.session_state["total_damage_volume_m3"]:.2f} m³'
+        total_volume_label = f'Total Damage Volume (in meter cube): {st.session_state["total_damage_volume_m3"]:.2f}'
 
         cv2.putText(
             frame, total_volume_label, (10, 30),
