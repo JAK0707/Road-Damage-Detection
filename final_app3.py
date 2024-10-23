@@ -86,18 +86,7 @@ st.title('Road Condition Analyser and Repair / Maintenance Cost Estimator')
 uploaded_file = st.file_uploader("Upload an image or video file", type=["jpg", "jpeg", "png", "mp4", "avi", "mov"])
 
 # User input for actual road width in meters
-option = st.selectbox('Real world width of the road: ', ('Default - Single Lane', 'Default - Two Lane', 'Default - Three Lane', 'Default - Four Lane', 'Enter Manually'),)
-real_world_width = 0
-if option == 'Default - Single Lane':
-    real_world_width=3.75
-elif option == 'Default - Two Lane':
-    real_world_width=7.25
-elif option == 'Default - Three Lane':
-    real_world_width=11
-elif option == 'Default - Four Lane':
-    real_world_width=15
-else:
-    real_world_width = st.number_input("Enter the real-world width of the road in meters", min_value=1.0, step=0.1) 
+real_world_width = st.number_input("Enter the real-world width of the road in meters", min_value=1.0, step=0.1)
 real_world_length = st.number_input("Enter the real-world length of the road in meters", min_value=1.0, step=0.1)
 confidence_threshold = 0.5
 
