@@ -18,4 +18,4 @@
 
 
 ## **5. Screenshot of the Interface**
-![interface](https://github.com/user-attachments/assets/f6116dd6-ca57-479c-b8c5-ba8e639016ea)
+![Screenshot 2024-10-25 181212](https://github.com/user-attachments/assets/b0cf91ce-e804-4d3e-a5fa-bee323875b09)
