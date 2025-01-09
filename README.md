@@ -1,4 +1,4 @@
-# **Road Repair Cost Estimator**
+# **Pave the Way: An AI-Driven Approach to Pothole Detection and Repair Cost Estimation**
 
 
 ## **1. Methodology**
