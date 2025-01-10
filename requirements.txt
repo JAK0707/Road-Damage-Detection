@@ -3,6 +3,9 @@ torch
 torchvision
 torchaudio
 ultralytics
-numpy
 opencv-python
+numpy
 pandas
+Pillow
+scipy
+sort-tracker
