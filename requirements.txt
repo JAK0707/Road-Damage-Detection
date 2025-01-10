@@ -10,3 +10,6 @@ Pillow
 scipy
 xlsxwriter
 scikit-image
+matplotlib
+filterpy
+lap
