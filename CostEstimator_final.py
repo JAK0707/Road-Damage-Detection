@@ -169,213 +169,212 @@ def generate_report(area_list, cost_list, labour_cost, other_costs):
     )
 
 # Check if the user uploaded a file
-if st.button("Calculate"):
-    if uploaded_file and concrete_cost_per_m3 and labour_cost and other_costs:
-        if uploaded_file.name.endswith(('jpg', 'jpeg', 'png')):
-            image = Image.open(uploaded_file)
-            st.image(image, caption="Uploaded Image", use_column_width=True)
-            image_cv = np.array(image)
-            image_width_pixels = image_cv.shape[1]
-            image_height_pixels = image_cv.shape[0]
-            scaling_factor = (real_world_width*real_world_length) / (image_width_pixels*image_height_pixels)
-            segmented_image, pixel_area, min_area, max_area, avg_area = detect_potholes(image_cv, scaling_factor)
-            
-            segmented_image = display_area(segmented_image, avg_area)
-            st.image(segmented_image, caption="Pothole Segmentation", use_column_width=True)
-            
-            pil_image = Image.fromarray(segmented_image)
-            img_bytes = io.BytesIO()
-            pil_image.save(img_bytes, format="PNG")
-            img_bytes.seek(0)
+if uploaded_file and concrete_cost_per_m3 and labour_cost and other_costs:
+    if uploaded_file.name.endswith(('jpg', 'jpeg', 'png')):
+        image = Image.open(uploaded_file)
+        st.image(image, caption="Uploaded Image", use_column_width=True)
+        image_cv = np.array(image)
+        image_width_pixels = image_cv.shape[1]
+        image_height_pixels = image_cv.shape[0]
+        scaling_factor = (real_world_width*real_world_length) / (image_width_pixels*image_height_pixels)
+        segmented_image, pixel_area, min_area, max_area, avg_area = detect_potholes(image_cv, scaling_factor)
+        
+        segmented_image = display_area(segmented_image, avg_area)
+        st.image(segmented_image, caption="Pothole Segmentation", use_column_width=True)
+        
+        pil_image = Image.fromarray(segmented_image)
+        img_bytes = io.BytesIO()
+        pil_image.save(img_bytes, format="PNG")
+        img_bytes.seek(0)
 
-            st.download_button(
-                label="Download Processed Image",
-                data=img_bytes,
-                file_name="processed_pothole_image.png",
-                mime="image/png"
+        st.download_button(
+            label="Download Processed Image",
+            data=img_bytes,
+            file_name="processed_pothole_image.png",
+            mime="image/png"
+        )
+
+        # Display results
+        st.write(f"Average Pothole Area in real-world (m²): {avg_area:.2f}")
+        # Calculate the volume of the pothole (area * depth, where depth is ~0.2 meters)
+        pothole_volume = avg_area * 0.2
+        st.write(f"Estimated Volume of pothole (m³): {pothole_volume:.2f}")
+        # Calculate material required and total cost
+        total_material_cost = pothole_volume * concrete_cost_per_m3
+        total_cost = total_material_cost + labour_cost + other_costs
+        # Display cost breakdown
+        st.write("### Cost Breakdown")
+        st.write(f"Material Cost: Rs.{total_material_cost:.2f}")
+        st.write(f"Labour Cost: Rs.{labour_cost:.2f}")
+        st.write(f"Other Costs: Rs.{other_costs:.2f}")
+        st.write(f"**Total Cost: Rs.{total_cost:.2f}**")
+        
+        area_list.append(min_area)
+        area_list.append(max_area)
+        area_list.append(avg_area)
+        cost_list.append(min_area * 0.2 * concrete_cost_per_m3)
+        cost_list.append(max_area * 0.2 * concrete_cost_per_m3)
+        cost_list.append(total_material_cost)
+        
+        # Generate report button
+        if st.button("Generate Report"):
+            generate_report(area_list, cost_list, labour_cost, other_costs)
+            
+    elif uploaded_file.name.endswith(('mp4','avi', 'mov')):
+        real_world_length_for_frame = st.number_input("Enter the real-world length of the captured road in meters in video", min_value=0.0, step=0.1)
+        if real_world_length_for_frame != 0:
+            temp_video_file = tempfile.NamedTemporaryFile(delete=False)
+            temp_video_file.write(uploaded_file.read())
+            video_path = temp_video_file.name
+            
+            device = "cuda" if torch.cuda.is_available() else "cpu"
+            # Load YOLOv8 model
+            model = model.to(device)
+            
+            # Initialize SORT tracker
+            tracker = Sort(max_age=5, min_hits=3, iou_threshold=0.3)
+                
+            st.video(video_path)
+            st.write("Processing Video .... ")
+
+            cap = cv2.VideoCapture(video_path)
+            frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+            frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+            fps = cap.get(cv2.CAP_PROP_FPS)
+            
+            # Calculate pixel-to-meter scaling factors
+            pixels_per_meter_width = frame_width / real_world_width
+            pixels_per_meter_length = frame_height / real_world_length_for_frame
+            
+            # Create output video file
+            output_path = tempfile.NamedTemporaryFile(delete=False, suffix=".mp4").name
+            out = cv2.VideoWriter(
+                output_path,
+                cv2.VideoWriter_fourcc(*"mp4v"),
+                fps,
+                (frame_width, frame_height),
             )
 
-            # Display results
-            st.write(f"Average Pothole Area in real-world (m²): {avg_area:.2f}")
-            # Calculate the volume of the pothole (area * depth, where depth is ~0.2 meters)
-            pothole_volume = avg_area * 0.2
-            st.write(f"Estimated Volume of pothole (m³): {pothole_volume:.2f}")
-            # Calculate material required and total cost
+            # Process video frame by frame
+            progress_bar = st.progress(0)
+            frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+            
+            while cap.isOpened():
+                ret, frame = cap.read()
+                if not ret:
+                    break
+                
+                results=model(frame, device=device)
+
+                detections = []  # Store detections for tracking
+
+                for result in results:
+                    for box in result.boxes.xyxy:
+                        x1, y1, x2, y2 = map(int, box[:4])  # Ensure coordinates are integers
+                        conf = float(result.boxes.conf[0])
+
+                        # Filter detections by confidence threshold
+                        if conf > confidence_threshold:
+                            detections.append([x1, y1, x2, y2])
+
+                # Track objects with SORT
+                tracked_objects = tracker.update(np.array(detections))
+
+                # Draw bounding boxes and accumulate volumes
+                for x1, y1, x2, y2, obj_id in tracked_objects:
+                    # Ensure coordinates are integers
+                    x1, y1, x2, y2 = map(int, [x1, y1, x2, y2])
+
+                    # Calculate real-world dimensions
+                    width_m = (x2 - x1) / pixels_per_meter_width
+                    length_m = (y2 - y1) / pixels_per_meter_length
+
+                    # Calculate area in m²
+                    area_m2 = width_m * length_m
+                    
+                    # Calculate volume in m³ (Area * Depth)
+                    volume_m3 = area_m2 * 0.2
+
+                    # Track maximum volume for each ID
+                    if obj_id not in tempstore:
+                        tempstore[obj_id] = volume_m3
+                        total_damage_volume_m3 += volume_m3
+                    else:
+                        # Update the total volume only if the bounding box is larger than before
+                        if volume_m3 > tempstore[obj_id]:
+                            total_damage_volume_m3 += (volume_m3 - tempstore[obj_id])
+                            tempstore[obj_id] = volume_m3
+
+                    # Draw bounding box in blue and thicker
+                    box_thickness = 3
+                    cv2.rectangle(frame, (x1, y1), (x2, y2), (255, 0, 0), box_thickness)
+
+                    # Prepare label with "Pothole" and confidence score
+                    label = f'Pothole ID {int(obj_id)}: {conf:.2f}'
+
+                    # Calculate text size for background
+                    (text_width, text_height), baseline = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 2)
+                    text_bg_y1 = y1 - text_height - 10  # Background y-coordinate
+                    text_bg_y2 = y1  # Background y-coordinate
+                    cv2.rectangle(frame, (x1, text_bg_y1), (x1 + text_width, text_bg_y2), (255, 0, 0), cv2.FILLED)  # Text background
+
+                    # Display label on the bounding box
+                    cv2.putText(
+                        frame, label, (x1, text_bg_y1 + text_height - 2),  # Adjusted for baseline
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2, cv2.LINE_AA
+                    )
+
+                # Display total damage volume on the video frame
+                total_volume_label = f'Damage Vol. (in m. cube): {total_damage_volume_m3:.2f}'
+
+                cv2.putText(
+                    frame, total_volume_label, (10, 30),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2
+                )
+                
+                # Write frame to output video
+                out.write(frame)
+
+                # Update progress bar
+                current_frame = int(cap.get(cv2.CAP_PROP_POS_FRAMES))
+                progress_bar.progress(min(current_frame / frame_count, 1.0))
+
+            # Release resources
+            cap.release()
+            out.release()
+
+            st.success("Processing complete!")
+            
+            with open(output_path, "rb") as file:
+                st.download_button(
+                    label="Download Output Video",
+                    data=file,
+                    file_name="output_with_tracking.mp4",
+                    mime="video/mp4",
+                )
+                
+            # Calculate and display other results
+            real_world_area = total_damage_volume_m3/0.2
+            pothole_volume = total_damage_volume_m3
             total_material_cost = pothole_volume * concrete_cost_per_m3
             total_cost = total_material_cost + labour_cost + other_costs
-            # Display cost breakdown
+
+            st.write(f"Average Pothole Area in real-world (m²): {real_world_area:.2f}")
+            st.write(f"Estimated Volume of pothole (m³): {pothole_volume:.2f}")
             st.write("### Cost Breakdown")
             st.write(f"Material Cost: Rs.{total_material_cost:.2f}")
             st.write(f"Labour Cost: Rs.{labour_cost:.2f}")
             st.write(f"Other Costs: Rs.{other_costs:.2f}")
             st.write(f"**Total Cost: Rs.{total_cost:.2f}**")
-            
-            area_list.append(min_area)
-            area_list.append(max_area)
-            area_list.append(avg_area)
-            cost_list.append(min_area * 0.2 * concrete_cost_per_m3)
-            cost_list.append(max_area * 0.2 * concrete_cost_per_m3)
-            cost_list.append(total_material_cost)
-            
+    
             # Generate report button
             if st.button("Generate Report"):
+                area_list.append(0.9 * real_world_area)
+                area_list.append(1.1 * real_world_area)
+                area_list.append(real_world_area)
+                cost_list.append(0.9 * real_world_area * 0.2 * concrete_cost_per_m3)
+                cost_list.append(1.1 * real_world_area * 0.2 * concrete_cost_per_m3)
+                cost_list.append(total_material_cost)
+
+                # Call report generation
                 generate_report(area_list, cost_list, labour_cost, other_costs)
-                
-        elif uploaded_file.name.endswith(('mp4','avi', 'mov')):
-            real_world_length_for_frame = st.number_input("Enter the real-world length of the captured road in meters in video", min_value=0.0, step=0.1)
-            if real_world_length_for_frame != 0:
-                temp_video_file = tempfile.NamedTemporaryFile(delete=False)
-                temp_video_file.write(uploaded_file.read())
-                video_path = temp_video_file.name
-                
-                device = "cuda" if torch.cuda.is_available() else "cpu"
-                # Load YOLOv8 model
-                model = model.to(device)
-                
-                # Initialize SORT tracker
-                tracker = Sort(max_age=5, min_hits=3, iou_threshold=0.3)
-                    
-                st.video(video_path)
-                st.write("Processing Video .... ")
-
-                cap = cv2.VideoCapture(video_path)
-                frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-                frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-                fps = cap.get(cv2.CAP_PROP_FPS)
-                
-                # Calculate pixel-to-meter scaling factors
-                pixels_per_meter_width = frame_width / real_world_width
-                pixels_per_meter_length = frame_height / real_world_length_for_frame
-                
-                # Create output video file
-                output_path = tempfile.NamedTemporaryFile(delete=False, suffix=".mp4").name
-                out = cv2.VideoWriter(
-                    output_path,
-                    cv2.VideoWriter_fourcc(*"mp4v"),
-                    fps,
-                    (frame_width, frame_height),
-                )
-
-                # Process video frame by frame
-                progress_bar = st.progress(0)
-                frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-                
-                while cap.isOpened():
-                    ret, frame = cap.read()
-                    if not ret:
-                        break
-                    
-                    results=model(frame, device=device)
-
-                    detections = []  # Store detections for tracking
-
-                    for result in results:
-                        for box in result.boxes.xyxy:
-                            x1, y1, x2, y2 = map(int, box[:4])  # Ensure coordinates are integers
-                            conf = float(result.boxes.conf[0])
-
-                            # Filter detections by confidence threshold
-                            if conf > confidence_threshold:
-                                detections.append([x1, y1, x2, y2])
-
-                    # Track objects with SORT
-                    tracked_objects = tracker.update(np.array(detections))
-
-                    # Draw bounding boxes and accumulate volumes
-                    for x1, y1, x2, y2, obj_id in tracked_objects:
-                        # Ensure coordinates are integers
-                        x1, y1, x2, y2 = map(int, [x1, y1, x2, y2])
-
-                        # Calculate real-world dimensions
-                        width_m = (x2 - x1) / pixels_per_meter_width
-                        length_m = (y2 - y1) / pixels_per_meter_length
-
-                        # Calculate area in m²
-                        area_m2 = width_m * length_m
-                        
-                        # Calculate volume in m³ (Area * Depth)
-                        volume_m3 = area_m2 * 0.2
-
-                        # Track maximum volume for each ID
-                        if obj_id not in tempstore:
-                            tempstore[obj_id] = volume_m3
-                            total_damage_volume_m3 += volume_m3
-                        else:
-                            # Update the total volume only if the bounding box is larger than before
-                            if volume_m3 > tempstore[obj_id]:
-                                total_damage_volume_m3 += (volume_m3 - tempstore[obj_id])
-                                tempstore[obj_id] = volume_m3
-
-                        # Draw bounding box in blue and thicker
-                        box_thickness = 3
-                        cv2.rectangle(frame, (x1, y1), (x2, y2), (255, 0, 0), box_thickness)
-
-                        # Prepare label with "Pothole" and confidence score
-                        label = f'Pothole ID {int(obj_id)}: {conf:.2f}'
-
-                        # Calculate text size for background
-                        (text_width, text_height), baseline = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 2)
-                        text_bg_y1 = y1 - text_height - 10  # Background y-coordinate
-                        text_bg_y2 = y1  # Background y-coordinate
-                        cv2.rectangle(frame, (x1, text_bg_y1), (x1 + text_width, text_bg_y2), (255, 0, 0), cv2.FILLED)  # Text background
-
-                        # Display label on the bounding box
-                        cv2.putText(
-                            frame, label, (x1, text_bg_y1 + text_height - 2),  # Adjusted for baseline
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2, cv2.LINE_AA
-                        )
-
-                    # Display total damage volume on the video frame
-                    total_volume_label = f'Damage Vol. (in m. cube): {total_damage_volume_m3:.2f}'
-
-                    cv2.putText(
-                        frame, total_volume_label, (10, 30),
-                        cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2
-                    )
-                    
-                    # Write frame to output video
-                    out.write(frame)
-
-                    # Update progress bar
-                    current_frame = int(cap.get(cv2.CAP_PROP_POS_FRAMES))
-                    progress_bar.progress(min(current_frame / frame_count, 1.0))
-
-                # Release resources
-                cap.release()
-                out.release()
-
-                st.success("Processing complete!")
-                
-                with open(output_path, "rb") as file:
-                    st.download_button(
-                        label="Download Output Video",
-                        data=file,
-                        file_name="output_with_tracking.mp4",
-                        mime="video/mp4",
-                    )
-                    
-                # Calculate and display other results
-                real_world_area = total_damage_volume_m3/0.2
-                pothole_volume = total_damage_volume_m3
-                total_material_cost = pothole_volume * concrete_cost_per_m3
-                total_cost = total_material_cost + labour_cost + other_costs
-
-                st.write(f"Average Pothole Area in real-world (m²): {real_world_area:.2f}")
-                st.write(f"Estimated Volume of pothole (m³): {pothole_volume:.2f}")
-                st.write("### Cost Breakdown")
-                st.write(f"Material Cost: Rs.{total_material_cost:.2f}")
-                st.write(f"Labour Cost: Rs.{labour_cost:.2f}")
-                st.write(f"Other Costs: Rs.{other_costs:.2f}")
-                st.write(f"**Total Cost: Rs.{total_cost:.2f}**")
-        
-                # Generate report button
-                if st.button("Generate Report"):
-                    area_list.append(0.9 * real_world_area)
-                    area_list.append(1.1 * real_world_area)
-                    area_list.append(real_world_area)
-                    cost_list.append(0.9 * real_world_area * 0.2 * concrete_cost_per_m3)
-                    cost_list.append(1.1 * real_world_area * 0.2 * concrete_cost_per_m3)
-                    cost_list.append(total_material_cost)
-
-                    # Call report generation
-                    generate_report(area_list, cost_list, labour_cost, other_costs)
