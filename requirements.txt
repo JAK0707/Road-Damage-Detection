@@ -8,5 +8,5 @@ numpy
 pandas
 Pillow
 scipy
-sort-tracker
+sort-python
 xlsxwriter
