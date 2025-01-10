@@ -9,3 +9,4 @@ pandas
 Pillow
 scipy
 xlsxwriter
+scikit-image
