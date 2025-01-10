@@ -1,0 +1,8 @@
+streamlit
+torch
+torchvision
+torchaudio
+ultralytics
+numpy
+opencv-python
+pandas
