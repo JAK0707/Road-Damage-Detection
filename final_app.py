@@ -97,8 +97,11 @@ if st.sidebar.button("Process Video") and uploaded_video and not st.session_stat
                 if conf > confidence_threshold:
                     detections.append([x1, y1, x2, y2])
 
-        # Track objects with SORT
-        tracked_objects = tracker.update(np.array(detections))
+        # Track objects with SORT only if there are detections
+        if len(detections) > 0:
+            tracked_objects = tracker.update(np.array(detections))
+        else:
+            tracked_objects = np.empty((0, 5))  # Empty array for no detections
 
         # Draw bounding boxes and accumulate volumes
         for x1, y1, x2, y2, obj_id in tracked_objects:

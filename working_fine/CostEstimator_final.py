@@ -82,10 +82,6 @@ def display_area(image, area):
 # Streamlit Web App
 st.title('Road Condition Analyser and Repair / Maintenance Cost Estimator')
 
-# Initialize session state for video processing
-if "video_processed" not in st.session_state:
-    st.session_state["video_processed"] = False
-
 # File upload: video/image input
 uploaded_file = st.file_uploader("Upload an image or video file", type=["jpg", "jpeg", "png", "mp4", "avi", "mov"])
 
@@ -226,7 +222,7 @@ if uploaded_file and concrete_cost_per_m3 and labour_cost and other_costs:
             
     elif uploaded_file.name.endswith(('mp4','avi', 'mov')):
         real_world_length_for_frame = st.number_input("Enter the real-world length of the captured road in meters in video", min_value=0.0, step=0.1)
-        if real_world_length_for_frame != 0 and not st.session_state["video_processed"]:
+        if real_world_length_for_frame != 0:
             temp_video_file = tempfile.NamedTemporaryFile(delete=False)
             temp_video_file.write(uploaded_file.read())
             video_path = temp_video_file.name
@@ -351,7 +347,6 @@ if uploaded_file and concrete_cost_per_m3 and labour_cost and other_costs:
             out.release()
 
             st.success("Processing complete!")
-            st.session_state["video_processed"] = True  # Mark video as processed
             
             with open(output_path, "rb") as file:
                 st.download_button(
